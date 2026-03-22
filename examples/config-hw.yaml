@@ -1,0 +1,10 @@
+node_id: realsense_0
+camera:
+  mode: hw
+  serial_number: "<YOUR_SERIAL_NUMBER>"
+  preset: 720p30
+  jpeg_quality: 90
+  align_depth_to_color: true
+rate_hz: 30.0
+data_endpoint: tcp://*:5568
+bind_data: true

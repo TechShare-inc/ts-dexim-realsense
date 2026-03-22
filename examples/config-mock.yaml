@@ -1,0 +1,7 @@
+node_id: realsense_0
+camera:
+  mode: mock
+  preset: 720p30
+rate_hz: 30.0
+data_endpoint: tcp://*:5568
+bind_data: true

@@ -18,3 +18,37 @@ def test_mock_interface_read() -> None:
     assert len(frame.color) == frame.width * frame.height * 3
 
     iface.disconnect()
+
+
+def test_mock_interface_rgb_only() -> None:
+    interface_mod = importlib.import_module("dexim.realsense.interface")
+    MockRealSenseInterface = interface_mod.MockRealSenseInterface
+    RealSenseConfig = interface_mod.RealSenseConfig
+
+    iface = MockRealSenseInterface(
+        RealSenseConfig(mode="mock", preset="480p30", enable_depth=False)
+    )
+    iface.connect()
+    frame = iface.read()
+
+    assert len(frame.color) == frame.width * frame.height * 3
+    assert frame.depth == b""
+
+    iface.disconnect()
+
+
+def test_mock_interface_depth_only() -> None:
+    interface_mod = importlib.import_module("dexim.realsense.interface")
+    MockRealSenseInterface = interface_mod.MockRealSenseInterface
+    RealSenseConfig = interface_mod.RealSenseConfig
+
+    iface = MockRealSenseInterface(
+        RealSenseConfig(mode="mock", preset="480p30", enable_color=False)
+    )
+    iface.connect()
+    frame = iface.read()
+
+    assert frame.color == b""
+    assert len(frame.depth) == frame.width * frame.height * 2
+
+    iface.disconnect()

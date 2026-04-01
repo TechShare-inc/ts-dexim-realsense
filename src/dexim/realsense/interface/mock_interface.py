@@ -32,12 +32,17 @@ class MockRealSenseInterface(SensorInterface[FrameObservation]):
             raise RuntimeError("MockRealSenseInterface is not connected")
 
         width, height = self._config.width, self._config.height
-        color = self._rng.integers(0, 255, size=(height, width, 3), dtype=np.uint8)
-        depth = np.full((height, width), 1000, dtype=np.uint16)
-
-        color_bytes = color.tobytes()
-        depth_bytes = depth.tobytes()
         stamp = time.time()
+
+        color_bytes = b""
+        if self._config.enable_color:
+            color = self._rng.integers(0, 255, size=(height, width, 3), dtype=np.uint8)
+            color_bytes = color.tobytes()
+
+        depth_bytes = b""
+        if self._config.enable_depth:
+            depth = np.full((height, width), 1000, dtype=np.uint16)
+            depth_bytes = depth.tobytes()
 
         return FrameObservation(
             device_id=self._config.serial_number or "mock",

@@ -213,10 +213,11 @@ def status() -> None:
     show_default=True,
 )
 @click.option(
-    "--show-depth/--no-show-depth",
-    default=False,
+    "--stream",
+    type=click.Choice(["rgb", "depth", "both"], case_sensitive=False),
+    default="rgb",
     show_default=True,
-    help="Show depth colormap next to color frame.",
+    help="Which stream(s) to display: rgb, depth, or both side-by-side.",
 )
 @click.option(
     "--max-frames",
@@ -230,7 +231,7 @@ def preview(
     mode: str,
     serial: str | None,
     preset: str,
-    show_depth: bool,
+    stream: str,
     max_frames: int,
 ) -> None:
     """Open a local OpenCV window for quick camera bring-up.
@@ -249,15 +250,22 @@ def preview(
             "Preview requires OpenCV. Install with: pip install dexim-realsense[hw]"
         ) from exc
 
+    stream = stream.lower()
+    enable_color = stream in ("rgb", "both")
+    enable_depth = stream in ("depth", "both")
+
     config = RealSenseConfig(
         mode=cast(Literal["mock", "hw"], mode),
         serial_number=serial,
         preset=cast(StreamPreset, preset),
+        enable_color=enable_color,
+        enable_depth=enable_depth,
     )
     interface = build_interface(config)
-    window_name = f"DexImitate RealSense Preview ({config.mode})"
+    window_name = f"DexImitate RealSense Preview ({config.mode}, {stream})"
 
     console.print("[info]Starting preview...[/]")
+    console.print(f"  Stream: [key]{stream}[/key]")
     console.print("[muted]Press q or Esc in the preview window to stop.[/]")
 
     frame_count = 0
@@ -265,15 +273,26 @@ def preview(
         interface.connect()
         while True:
             frame = interface.read()
-            color_img = _decode_color_for_preview(
-                frame.color,
-                frame.width,
-                frame.height,
-                cv2,
-            )
 
-            display_img = color_img
-            if show_depth and frame.depth:
+            if stream == "rgb":
+                display_img = _decode_color_for_preview(
+                    frame.color,
+                    frame.width,
+                    frame.height,
+                    cv2,
+                )
+            elif stream == "depth":
+                depth = np.frombuffer(frame.depth, dtype=np.uint16)
+                depth = depth.reshape((frame.height, frame.width))
+                depth_scaled = cv2.convertScaleAbs(depth, alpha=0.03)
+                display_img = cv2.applyColorMap(depth_scaled, cv2.COLORMAP_JET)
+            else:  # both
+                color_img = _decode_color_for_preview(
+                    frame.color,
+                    frame.width,
+                    frame.height,
+                    cv2,
+                )
                 depth = np.frombuffer(frame.depth, dtype=np.uint16)
                 depth = depth.reshape((frame.height, frame.width))
                 depth_scaled = cv2.convertScaleAbs(depth, alpha=0.03)

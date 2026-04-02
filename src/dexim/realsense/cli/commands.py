@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from types import ModuleType
 from typing import Literal, cast
 
@@ -15,6 +16,15 @@ from dexim.cli.common import get_console, handle_cli_error, make_table, status_b
 from dexim.realsense.interface import RealSenseConfig, build_interface
 from dexim.realsense.interface.config import StreamPreset
 from dexim.realsense.node import RealSenseNode, RealSenseNodeConfig, load_config
+
+from .config_utils import (
+    create_config_yaml,
+    edit_config_yaml,
+    get_config_yaml_path,
+    list_named_configs,
+    remove_config_yaml,
+    resolve_config_path,
+)
 
 
 def _query_devices() -> list[dict[str, str]]:
@@ -73,7 +83,18 @@ def _decode_color_for_preview(
 
 
 @click.command()
-@click.option("--config", "config_path", type=click.Path(exists=True), default=None)
+@click.option(
+    "--config",
+    "-c",
+    default=None,
+    help="YAML config file or named config. Overrides other options if provided.",
+)
+@click.option(
+    "--config-dir",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=None,
+    help="Config root directory (default: ./config or DEXIM_CONFIG_DIR).",
+)
 @click.option(
     "--mode",
     type=click.Choice(["mock", "hw"], case_sensitive=False),
@@ -105,7 +126,8 @@ def _decode_color_for_preview(
 )
 @handle_cli_error
 def run(
-    config_path: str | None,
+    config: str | None,
+    config_dir: Path | None,
     mode: str,
     serial: str | None,
     preset: str,
@@ -116,8 +138,8 @@ def run(
     """Start a RealSense publish-only sensor node."""
     console = get_console()
 
-    if config_path:
-        cfg = load_config(config_path)
+    if config:
+        cfg = load_config(str(resolve_config_path(config, _path_value(config_dir))))
     else:
         cfg = RealSenseNodeConfig(
             node_id=node_id,
@@ -314,3 +336,264 @@ def preview(
             cv2.destroyAllWindows()
 
     console.print(f"[success]Preview stopped after {frame_count} frame(s).[/]")
+
+
+# ── config group ──────────────────────────────────────────────────────────────
+
+
+@click.group(name="config")
+def config_group() -> None:
+    """Manage named RealSense configuration files (CRUD)."""
+
+
+@config_group.command(name="show")
+@click.argument("config_name")
+@click.option(
+    "--config-dir",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=None,
+    help="Config root directory (default: ./config or DEXIM_CONFIG_DIR).",
+)
+@handle_cli_error
+def config_show(config_name: str, config_dir: Path | None) -> None:
+    """Pretty-print a resolved RealSense configuration file."""
+    console = get_console()
+    cfg = load_config(str(resolve_config_path(config_name, _path_value(config_dir))))
+    from .display import render_config
+
+    render_config(cfg, console)
+
+
+@config_group.command(name="validate")
+@click.argument("config_name")
+@click.option(
+    "--config-dir",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=None,
+    help="Config root directory (default: ./config or DEXIM_CONFIG_DIR).",
+)
+@handle_cli_error
+def config_validate(config_name: str, config_dir: Path | None) -> None:
+    """Validate a RealSense configuration file without starting the node."""
+    console = get_console()
+    resolved = resolve_config_path(config_name, _path_value(config_dir))
+    load_config(str(resolved))
+    console.print(f"[success]\u2713 Config is valid:[/] {resolved}")
+
+
+@config_group.command(name="list")
+@click.option(
+    "--config-dir",
+    type=click.Path(path_type=Path, file_okay=False),
+    default=None,
+    help="Config root directory (default: ./config or DEXIM_CONFIG_DIR).",
+)
+@handle_cli_error
+def config_list(config_dir: Path | None) -> None:
+    """List all named RealSense configuration files."""
+    console = get_console()
+    dir_value = _path_value(config_dir)
+    names = list_named_configs(dir_value)
+    if not names:
+        console.print("[muted]No configs found.[/]")
+        return
+    rows = [[name, str(get_config_yaml_path(name, dir_value))] for name in names]
+    console.print(
+        make_table(
+            title="Named RealSense Configs",
+            columns=[("Name", "key"), ("Path", "value")],
+            rows=rows,
+        )
+    )
+
+
+def _config_dir_option(func):
+    return click.option(
+        "--config-dir",
+        type=click.Path(path_type=Path, file_okay=False),
+        default=None,
+        help="Config root directory (default: ./config or DEXIM_CONFIG_DIR).",
+    )(func)
+
+
+def _config_field_options(func):
+    """Shared CLI options for config new / config edit."""
+    func = click.option(
+        "--mode",
+        type=click.Choice(["mock", "hw"]),
+        default=None,
+        help="Interface mode.",
+    )(func)
+    func = click.option(
+        "--serial",
+        default=None,
+        help="RealSense serial number (hw mode).",
+    )(func)
+    func = click.option(
+        "--preset",
+        type=click.Choice(["480p30", "480p60", "720p30", "1080p30"]),
+        default=None,
+        help="Resolution and frame-rate preset.",
+    )(func)
+    func = click.option(
+        "--node-id",
+        default=None,
+        help="Node identifier.",
+    )(func)
+    func = click.option(
+        "--endpoint",
+        default=None,
+        help="Data PUB endpoint, e.g. tcp://*:5568.",
+    )(func)
+    func = click.option(
+        "--rate-hz",
+        type=float,
+        default=None,
+        help="Publish rate in Hz.",
+    )(func)
+    return func
+
+
+def _build_config_dict(
+    *,
+    mode: str | None,
+    serial: str | None,
+    preset: str | None,
+    node_id: str | None,
+    endpoint: str | None,
+    rate_hz: float | None,
+) -> dict:
+    """Build a config dict from CLI option values, omitting None fields."""
+    data: dict = {}
+    camera: dict = {"mode": mode or "mock"}
+    if serial is not None:
+        camera["serial_number"] = serial
+    if preset is not None:
+        camera["preset"] = preset
+    data["camera"] = camera
+    if node_id is not None:
+        data["node_id"] = node_id
+    if endpoint is not None:
+        data["data_endpoint"] = endpoint
+    if rate_hz is not None:
+        data["rate_hz"] = rate_hz
+    return data
+
+
+def _collect_updates(
+    *,
+    mode: str | None,
+    serial: str | None,
+    preset: str | None,
+    node_id: str | None,
+    endpoint: str | None,
+    rate_hz: float | None,
+) -> dict:
+    """Build a partial update dict from non-None CLI option values."""
+    updates: dict = {}
+    if mode is not None:
+        updates.setdefault("camera", {})["mode"] = mode
+    if serial is not None:
+        updates.setdefault("camera", {})["serial_number"] = serial
+    if preset is not None:
+        updates.setdefault("camera", {})["preset"] = preset
+    if node_id is not None:
+        updates["node_id"] = node_id
+    if endpoint is not None:
+        updates["data_endpoint"] = endpoint
+    if rate_hz is not None:
+        updates["rate_hz"] = rate_hz
+    return updates
+
+
+@config_group.command(name="new")
+@click.argument("config_name")
+@_config_field_options
+@_config_dir_option
+@handle_cli_error
+def config_new(
+    config_name: str,
+    config_dir: Path | None,
+    mode: str | None,
+    serial: str | None,
+    preset: str | None,
+    node_id: str | None,
+    endpoint: str | None,
+    rate_hz: float | None,
+) -> None:
+    """Create a new named RealSense configuration file."""
+    console = get_console()
+    data = _build_config_dict(
+        mode=mode,
+        serial=serial,
+        preset=preset,
+        node_id=node_id,
+        endpoint=endpoint,
+        rate_hz=rate_hz,
+    )
+    path = create_config_yaml(config_name, data, _path_value(config_dir))
+    console.print(f"[success]\u2713 Created config '{config_name}':[/] {path}")
+
+
+@config_group.command(name="edit")
+@click.argument("config_name")
+@_config_field_options
+@_config_dir_option
+@handle_cli_error
+def config_edit(
+    config_name: str,
+    config_dir: Path | None,
+    mode: str | None,
+    serial: str | None,
+    preset: str | None,
+    node_id: str | None,
+    endpoint: str | None,
+    rate_hz: float | None,
+) -> None:
+    """Update fields in an existing named RealSense configuration file."""
+    console = get_console()
+    updates = _collect_updates(
+        mode=mode,
+        serial=serial,
+        preset=preset,
+        node_id=node_id,
+        endpoint=endpoint,
+        rate_hz=rate_hz,
+    )
+    if not updates:
+        raise click.UsageError("Specify at least one field to change.")
+    path = edit_config_yaml(config_name, updates, _path_value(config_dir))
+    console.print(f"[success]\u2713 Updated config '{config_name}':[/] {path}")
+
+
+@config_group.command(name="remove")
+@click.argument("config_name")
+@click.option(
+    "--yes",
+    is_flag=True,
+    default=False,
+    help="Confirm deletion without prompting.",
+)
+@_config_dir_option
+@handle_cli_error
+def config_remove(
+    config_name: str,
+    yes: bool,
+    config_dir: Path | None,
+) -> None:
+    """Delete a named RealSense configuration file."""
+    console = get_console()
+    if not yes:
+        raise click.UsageError(
+            f"This will permanently delete config '{config_name}'. "
+            f"Pass --yes to confirm."
+        )
+    path = remove_config_yaml(config_name, _path_value(config_dir))
+    console.print(f"[success]\u2713 Removed config '{config_name}':[/] {path}")
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+
+def _path_value(path: Path | None) -> str | None:
+    return str(path) if path is not None else None

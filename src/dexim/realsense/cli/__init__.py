@@ -3,7 +3,7 @@
 __version__ = "0.1.0"
 
 import rich_click as click
-from dexim.cli.common import print_banner, setup_error_handling
+from dexim.cli.common import configure_logging, print_banner, setup_error_handling
 
 from dexim.realsense.cli.commands import (
     config_group,
@@ -18,8 +18,19 @@ click.rich_click.STYLE_COMMANDS_TABLE_COLUMN_WIDTH_RATIO = (1, 3)
 
 
 @click.group(name="realsense")
-def realsense_group() -> None:
+@click.option(
+    "--log-level",
+    type=click.Choice(
+        ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], case_sensitive=False
+    ),
+    default="INFO",
+    show_default=True,
+    envvar="DEXIM_LOG_LEVEL",
+    help="Logging verbosity.",
+)
+def realsense_group(log_level: str) -> None:
     """Intel RealSense camera - run, status, list-devices, preview, config."""
+    configure_logging(log_level)
 
 
 realsense_group.add_command(run)

@@ -28,6 +28,7 @@ class RealSenseNode(PublisherDeviceNode):
         self._ctx = zmq.Context.instance()
         self._pub: zmq.Socket = self._ctx.socket(zmq.PUB)
         self._pub.setsockopt(zmq.LINGER, 0)
+        self._pub.setsockopt(zmq.SNDHWM, 10)  # Frames are large; keep HWM low
         if config.bind_data:
             self._pub.bind(config.data_endpoint)
         else:

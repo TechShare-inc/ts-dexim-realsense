@@ -17,12 +17,12 @@ class RealSenseNode(PublisherDeviceNode):
     """Publish-only node that streams RealSense frame observations."""
 
     def __init__(self, config: RealSenseNodeConfig) -> None:
+        self.config = config
         super().__init__(
             node_id=config.node_id,
             control_endpoint=config.control_endpoint,
             status_endpoint=config.status_endpoint,
         )
-        self.config = config
         self.interface = build_interface(config.camera)
 
         self._ctx = zmq.Context.instance()
@@ -73,12 +73,15 @@ class RealSenseNode(PublisherDeviceNode):
     def get_status_info(self) -> StatusInfo:
         """Return a snapshot of RealSense-specific runtime state."""
         info = super().get_status_info()
-        info.interface_mode = self.config.camera.mode
-        try:
-            info.hardware_connected = self.interface.is_connected()
-        except Exception:
-            info.hardware_connected = None
-        info.data_rate_hz = self.config.rate_hz if self._active else 0.0
+        # Guard against access during __init__ before subclass attrs are set.
+        if hasattr(self, "config"):
+            info.interface_mode = self.config.camera.mode
+            info.data_rate_hz = self.config.rate_hz if getattr(self, "_active", False) else 0.0
+        if hasattr(self, "interface"):
+            try:
+                info.hardware_connected = self.interface.is_connected()
+            except Exception:
+                info.hardware_connected = None
         return info
 
     def _main_loop_iteration(self) -> None:

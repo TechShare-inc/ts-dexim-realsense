@@ -161,7 +161,7 @@ def run(
     console.print(f"  Endpoint:   [key]{cfg.data_endpoint}[/key]")
 
     node = RealSenseNode(cfg)
-    console.print("[success]● RealSense node running. Press Ctrl+C to stop.[/]")
+    console.print("[success]* RealSense node running. Press Ctrl+C to stop.[/]")
     try:
         node.run()
     except KeyboardInterrupt:
@@ -338,7 +338,7 @@ def preview(
     console.print(f"[success]Preview stopped after {frame_count} frame(s).[/]")
 
 
-# ── config group ──────────────────────────────────────────────────────────────
+# -- config group --------------------------------------------------------------
 
 
 @click.group(name="config")
@@ -592,7 +592,7 @@ def config_remove(
     console.print(f"[success]\u2713 Removed config '{config_name}':[/] {path}")
 
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+# -- helpers -------------------------------------------------------------------
 
 
 def _path_value(path: Path | None) -> str | None:

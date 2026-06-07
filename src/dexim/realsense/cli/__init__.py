@@ -43,5 +43,5 @@ realsense_group.add_command(config_group, name="config")
 def standalone_app() -> None:
     """Entry point for standalone dexim-realsense CLI."""
     setup_error_handling()
-    print_banner(app_name="DexImitate · RealSense", version=__version__)
+    print_banner(app_name="DexImitate - RealSense", version=__version__)
     realsense_group(standalone_mode=True)

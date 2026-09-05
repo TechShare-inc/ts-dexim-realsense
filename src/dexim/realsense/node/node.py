@@ -26,7 +26,7 @@ class RealSenseNode(PublisherDeviceNode):
         self.interface = build_interface(config.camera)
 
         self._ctx = zmq.Context.instance()
-        self._pub: zmq.Socket = self._ctx.socket(zmq.PUB)
+        self._pub: zmq.Socket[bytes] = self._ctx.socket(zmq.PUB)
         self._pub.setsockopt(zmq.LINGER, 0)
         self._pub.setsockopt(zmq.SNDHWM, 10)  # Frames are large; keep HWM low
         if config.bind_data:
@@ -76,7 +76,11 @@ class RealSenseNode(PublisherDeviceNode):
         # Guard against access during __init__ before subclass attrs are set.
         if hasattr(self, "config"):
             info.interface_mode = self.config.camera.mode
-            info.data_rate_hz = self.config.rate_hz if getattr(self, "_active", False) else 0.0
+            info.data_rate_hz = (
+                (self.config.rate_hz or 0.0)
+                if getattr(self, "_active", False)
+                else 0.0
+            )
         if hasattr(self, "interface"):
             try:
                 info.hardware_connected = self.interface.is_connected()

@@ -7,10 +7,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Literal, cast
+from typing import Any, Literal, TypeVar, cast
 
 import numpy as np
 import rich_click as click
+from numpy.typing import NDArray
 
 from dexim.cli.common import get_console, handle_cli_error, make_table, status_badge
 from dexim.realsense.interface import RealSenseConfig, build_interface
@@ -27,6 +28,9 @@ from .config_utils import (
 )
 
 
+F = TypeVar("F", bound=Callable[..., Any])
+
+
 def _query_devices() -> list[dict[str, str]]:
     """Query connected RealSense devices.
 
@@ -34,7 +38,7 @@ def _query_devices() -> list[dict[str, str]]:
         List of device dictionaries with serial/name/firmware.
     """
     try:
-        import pyrealsense2 as rs  # type: ignore[import-not-found]
+        import pyrealsense2 as rs
     except ImportError as exc:
         raise ImportError(
             "RealSense SDK missing. Install with: pip install dexim-realsense[hw]"
@@ -57,7 +61,7 @@ def _decode_color_for_preview(
     width: int,
     height: int,
     cv2_mod: ModuleType,
-) -> np.ndarray:
+) -> NDArray[np.uint8]:
     """Decode color bytes to BGR image for preview.
 
     Supports both JPEG payloads (hw mode) and raw uint8 BGR payloads
@@ -65,7 +69,7 @@ def _decode_color_for_preview(
     """
     imread_color = cast(int, getattr(cv2_mod, "IMREAD_COLOR"))
     imdecode = cast(
-        Callable[[np.ndarray, int], np.ndarray | None],
+        Callable[[NDArray[np.uint8], int], NDArray[np.uint8] | None],
         getattr(cv2_mod, "imdecode"),
     )
 
@@ -266,7 +270,7 @@ def preview(
         raise ValueError("max_frames must be >= 0")
 
     try:
-        import cv2  # type: ignore[import-not-found]
+        import cv2
     except ImportError as exc:
         raise ImportError(
             "Preview requires OpenCV. Install with: pip install dexim-realsense[hw]"
@@ -407,7 +411,7 @@ def config_list(config_dir: Path | None) -> None:
     )
 
 
-def _config_dir_option(func):
+def _config_dir_option(func: F) -> F:
     return click.option(
         "--config-dir",
         type=click.Path(path_type=Path, file_okay=False),
@@ -416,7 +420,7 @@ def _config_dir_option(func):
     )(func)
 
 
-def _config_field_options(func):
+def _config_field_options(func: F) -> F:
     """Shared CLI options for config new / config edit."""
     func = click.option(
         "--mode",
@@ -462,10 +466,10 @@ def _build_config_dict(
     node_id: str | None,
     endpoint: str | None,
     rate_hz: float | None,
-) -> dict:
+) -> dict[str, object]:
     """Build a config dict from CLI option values, omitting None fields."""
-    data: dict = {}
-    camera: dict = {"mode": mode or "mock"}
+    data: dict[str, object] = {}
+    camera: dict[str, object] = {"mode": mode or "mock"}
     if serial is not None:
         camera["serial_number"] = serial
     if preset is not None:
@@ -488,15 +492,18 @@ def _collect_updates(
     node_id: str | None,
     endpoint: str | None,
     rate_hz: float | None,
-) -> dict:
+) -> dict[str, object]:
     """Build a partial update dict from non-None CLI option values."""
-    updates: dict = {}
+    updates: dict[str, object] = {}
+    camera: dict[str, object] = {}
     if mode is not None:
-        updates.setdefault("camera", {})["mode"] = mode
+        camera["mode"] = mode
     if serial is not None:
-        updates.setdefault("camera", {})["serial_number"] = serial
+        camera["serial_number"] = serial
     if preset is not None:
-        updates.setdefault("camera", {})["preset"] = preset
+        camera["preset"] = preset
+    if camera:
+        updates["camera"] = camera
     if node_id is not None:
         updates["node_id"] = node_id
     if endpoint is not None:

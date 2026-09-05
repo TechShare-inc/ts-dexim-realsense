@@ -9,7 +9,9 @@ def test_mock_interface_read() -> None:
     RealSenseConfig = interface_mod.RealSenseConfig
 
     iface = MockRealSenseInterface(RealSenseConfig(mode="mock", preset="480p30"))
+    assert iface.is_connected() is False
     iface.connect()
+    assert iface.is_connected() is True
     frame = iface.read()
 
     assert frame.width == 640
@@ -18,6 +20,7 @@ def test_mock_interface_read() -> None:
     assert len(frame.color) == frame.width * frame.height * 3
 
     iface.disconnect()
+    assert iface.is_connected() is False
 
 
 def test_mock_interface_rgb_only() -> None:

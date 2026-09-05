@@ -27,6 +27,10 @@ class MockRealSenseInterface(SensorInterface[FrameObservation]):
     def disconnect(self) -> None:
         self._connected = False
 
+    def is_connected(self) -> bool:
+        """Return whether the mock sensor is connected."""
+        return self._connected
+
     def read(self) -> FrameObservation:
         if not self._connected:
             raise RuntimeError("MockRealSenseInterface is not connected")

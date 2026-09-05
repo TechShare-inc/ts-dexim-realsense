@@ -73,6 +73,10 @@ class RealSenseInterface(SensorInterface[FrameObservation]):
         self._align = None
         self._connected = False
 
+    def is_connected(self) -> bool:
+        """Return whether the RealSense pipeline is connected."""
+        return self._connected
+
     def read(self) -> FrameObservation:
         """Read one synchronized frame pair and return FrameObservation."""
         if not self._connected or self._pipeline is None:

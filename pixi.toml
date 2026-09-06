@@ -1,6 +1,6 @@
 [workspace]
 name = "ts-dexim-realsense"
-version = "0.1.0"
+version = "1.0.0"
 channels = ["conda-forge"]
 platforms = ["win-64"]
 
@@ -9,8 +9,8 @@ python = "3.10.*"
 
 [pypi-dependencies]
 dexim-realsense = { path = ".", editable = true }
-dexim-core = { git = "https://github.com/TechShare-inc/ts-dexim-core.git", rev = "7bcbec6b8ab8d61e411e87843a0bf6e84fe7ad88" }
-dexim-cli-common = { git = "https://github.com/TechShare-inc/ts-dexim-cli-common.git", rev = "f427f441b8258c4430afaa21b011ed78cc22e14e" }
+dexim-core = { git = "https://github.com/TechShare-inc/ts-dexim-core.git", rev = "2c5f6424e6e99bbc24894c3e7198a04d97c491ad" }
+dexim-cli-common = { git = "https://github.com/TechShare-inc/ts-dexim-cli-common.git", rev = "62496fcd9b9ea0cfcada91ddb8233935336020dc" }
 
 [feature.dev.pypi-dependencies]
 pytest = ">=8.0"

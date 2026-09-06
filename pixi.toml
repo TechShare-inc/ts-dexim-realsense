@@ -9,7 +9,7 @@ python = "3.10.*"
 
 [pypi-dependencies]
 dexim-realsense = { path = ".", editable = true }
-dexim-core = { git = "https://github.com/TechShare-inc/ts-dexim-core.git", branch = "dev" }
+dexim-core = { git = "https://github.com/TechShare-inc/ts-dexim-core.git", rev = "7bcbec6b8ab8d61e411e87843a0bf6e84fe7ad88" }
 dexim-cli-common = { git = "https://github.com/TechShare-inc/ts-dexim-cli-common.git", rev = "f427f441b8258c4430afaa21b011ed78cc22e14e" }
 
 [feature.dev.pypi-dependencies]

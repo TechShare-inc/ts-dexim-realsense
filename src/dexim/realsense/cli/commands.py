@@ -299,6 +299,7 @@ def preview(
         interface.connect()
         while True:
             frame = interface.read()
+            display_img: NDArray[Any]
 
             if stream == "rgb":
                 display_img = _decode_color_for_preview(
